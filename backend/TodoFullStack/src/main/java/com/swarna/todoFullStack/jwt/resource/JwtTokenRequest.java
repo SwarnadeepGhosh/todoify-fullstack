@@ -1,10 +1,11 @@
 package com.swarna.todoFullStack.jwt.resource;
 
-import java.io.Serializable;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.io.Serializable;
 
 @Data
 @NoArgsConstructor
@@ -12,9 +13,9 @@ import lombok.NoArgsConstructor;
 @Builder
 public class JwtTokenRequest implements Serializable {
 
-	private static final long serialVersionUID = -5616176897013108345L;
+    private static final long serialVersionUID = -5616176897013108345L;
 
-	private String username;
-	private String password;
+    private String username;
+    private String password;
 
 }
