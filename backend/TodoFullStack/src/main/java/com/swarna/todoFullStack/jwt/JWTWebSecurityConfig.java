@@ -6,67 +6,81 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
-import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.builders.WebSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
-@EnableWebSecurity
-@EnableGlobalMethodSecurity(prePostEnabled = true)
-public class JWTWebSecurityConfig extends WebSecurityConfigurerAdapter {
+@EnableMethodSecurity
+public class JWTWebSecurityConfig {
 
-	@Autowired
-	private JwtUnAuthorizedResponseAuthenticationEntryPoint jwtUnAuthorizedResponseAuthenticationEntryPoint;
+    @Autowired
+    private JwtUnAuthorizedResponseAuthenticationEntryPoint jwtUnAuthorizedResponseAuthenticationEntryPoint;
 
-	@Autowired
-	private UserDetailsService jwtInMemoryUserDetailsService;
+    @Autowired
+    private UserDetailsService jwtInMemoryUserDetailsService;
 
-	@Autowired
-	private JwtTokenAuthorizationOncePerRequestFilter jwtAuthenticationTokenFilter;
+    @Autowired
+    private JwtTokenAuthorizationOncePerRequestFilter jwtAuthenticationTokenFilter;
 
-	@Value("${jwt.get.token.uri}")
-	private String authenticationPath;
+    @Value("${jwt.get.token.uri}")
+    private String authenticationPath;
 
-	@Autowired
-	public void configureGlobal(AuthenticationManagerBuilder auth) throws Exception {
-		auth.userDetailsService(jwtInMemoryUserDetailsService).passwordEncoder(new BCryptPasswordEncoder());
-	}
+    // ✅ Password Encoder
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
 
-	// @Bean
-	// public PasswordEncoder passwordEncoderBean() {
-	// return new BCryptPasswordEncoder();
-	// }
+    // ✅ Authentication Manager
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
 
-	@Bean
-	@Override
-	public AuthenticationManager authenticationManagerBean() throws Exception {
-		return super.authenticationManagerBean();
-	}
+    // ✅ MAIN SECURITY CONFIG
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
-	@Override
-	protected void configure(HttpSecurity httpSecurity) throws Exception {
-		httpSecurity.csrf().disable().exceptionHandling()
-				.authenticationEntryPoint(jwtUnAuthorizedResponseAuthenticationEntryPoint).and().sessionManagement()
-				.sessionCreationPolicy(SessionCreationPolicy.STATELESS).and().authorizeRequests().anyRequest()
-				.authenticated();
+        http
+                .cors(cors -> {
+                }) // ✅ IMPORTANT for your CORS config
+                .csrf(csrf -> csrf.disable())
 
-		httpSecurity.addFilterBefore(jwtAuthenticationTokenFilter, UsernamePasswordAuthenticationFilter.class);
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(jwtUnAuthorizedResponseAuthenticationEntryPoint)
+                )
 
-		httpSecurity.headers().frameOptions().sameOrigin() // H2 Console Needs this setting
-				.cacheControl(); // disable caching
-	}
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
 
-	@Override
-	public void configure(WebSecurity webSecurity) throws Exception {
-		webSecurity.ignoring().antMatchers(HttpMethod.POST, authenticationPath).antMatchers(HttpMethod.OPTIONS, "/**")
-				.and().ignoring().antMatchers(HttpMethod.GET, "/" // Other Stuff You want to Ignore
-				).and().ignoring().antMatchers("/h2-console/**/**");// Should not be in Production!
-	}
+                .authorizeHttpRequests(auth -> auth
+                        // ✅ Allow login endpoint
+                        .requestMatchers(HttpMethod.POST, authenticationPath).permitAll()
+
+                        // ✅ Allow preflight (CORS)
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // ✅ H2 console (optional)
+                        .requestMatchers("/h2-console/**").permitAll()
+
+                        // ✅ Everything else secured
+                        .anyRequest().authenticated()
+                );
+
+        // ✅ JWT Filter
+        http.addFilterBefore(jwtAuthenticationTokenFilter, UsernamePasswordAuthenticationFilter.class);
+
+        // ✅ H2 console fix
+        http.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
+
+        return http.build();
+    }
 }

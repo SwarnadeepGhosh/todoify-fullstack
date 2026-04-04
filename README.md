@@ -21,6 +21,17 @@ curl --location --request POST 'https://todoify-backend.azurewebsites.net/authen
 }'
 ```
 
+### [Backend URL 2](https://todoify-fullstack-api.onrender.com) - Deployed in Azure (Authenticate using below command to get JWT token)
+```sh
+curl --location 'https://todoify-fullstack-api.onrender.com/authenticate' \
+--header 'Origin: https://todoify2.vercel.app/' \
+--header 'Content-Type: application/json' \
+--data '{
+    "username": "user",
+    "password": "dummy"
+}'
+```
+
 
 ## Introduction
 
